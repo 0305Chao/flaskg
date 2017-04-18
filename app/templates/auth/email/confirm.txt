@@ -1,0 +1,7 @@
+亲爱的 {{ user.username }},
+
+Welcome to Here
+
+点击下面的链接确认你的账户，若打不来，请复制到浏览器打开。
+
+{{ url_for('auth.confirm', token=token, _external=True) }}
