@@ -1,9 +1,11 @@
 # coding=utf-8
+import hashlib
+from datetime import datetime
 from . import db, login_manager
 from flask_login import UserMixin, AnonymousUserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
-from flask import current_app
+from flask import current_app, request
 
 
 class Permissions(object):
@@ -12,6 +14,7 @@ class Permissions(object):
     WRITE_ARTICLES = 0x04
     MODERATE_COMMENTS = 0x08
     ADMINISTER = 0x80
+
 
 class Role(db.Model):
     __tablename__ = 'roles'
@@ -52,7 +55,12 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(64), unique=True, index=True)
     username = db.Column(db.String(64), unique=True, index=True)
     password_hash = db.Column(db.String(128))
-    confirmed =db.Column(db.Boolean, default=False)
+    confirmed = db.Column(db.Boolean, default=False)
+    name = db.Column(db.String(64))
+    location = db.Column(db.String(64))
+    about_me = db.Column(db.Text())
+    member_since = db.Column(db.DateTime(), default=datetime.utcnow())
+    last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
 
     def __init__(self, **kwds):
@@ -62,6 +70,20 @@ class User(UserMixin, db.Model):
                 self.role = Role.query.filter_by(permissions=0xff).first()
             if not self.role:
                 self.role = Role.query.filter_by(default=True).first()
+        if self.email and self.avator_hash:
+            self.avator_hash = hashlib.md5(
+                self.email.encode('utf-8').hexdigest())
+
+    def gravatar(self, size=100, default='identicon', rating='g'):
+        if request.is_secure:
+            url = 'https://secure.gravator.com/avator'
+        else:
+            url = 'http://www.gravator.com/avator'
+        hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
+            url=url, hash=hash, size=size, default=default, rating=rating
+        )
+
     @property
     def password(self):
         raise AttributeError('看个这个密码知道自己是文盲了吧！')
@@ -73,8 +95,7 @@ class User(UserMixin, db.Model):
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-
-    def generate_confirmation_token(self, expiration=60*60):
+    def generate_confirmation_token(self, expiration=60 * 60):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'confirm': self.id})
 
@@ -90,7 +111,7 @@ class User(UserMixin, db.Model):
         db.session.add(self)
         return True
 
-    def generate_reset_token(self, expiration=60*60):
+    def generate_reset_token(self, expiration=60 * 60):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'reset': self.id})
 
@@ -106,7 +127,7 @@ class User(UserMixin, db.Model):
         db.session.add(self)
         return True
 
-    def generate_change_email_token(self, new_email, expiration=60*60):
+    def generate_change_email_token(self, new_email, expiration=60 * 60):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'change_email': self.id, 'new_email': new_email})
 
@@ -124,27 +145,36 @@ class User(UserMixin, db.Model):
         if not self.query.filter_by(email=new_email).first():
             return False
         self.email = new_email
+        self.avator_hash = hashlib.md5(self.email.encode('utf-8').hexdigest())
         db.session.add(self)
         return True
 
     def can(self, permissions):
-        return self.role is not None and \
-               (self.role.permissions & permissions) == permissions
+        return self.role and \
+            (self.role.permissions & permissions) == permissions
 
     def is_administrator(self):
         return self.can(Permissions.ADMINISTER)
 
+    def ping(self):
+        self.last_seen = datetime.utcnow()
+        db.session.add(self)
+
     def __repr__(self):
         return '<User {}>'.format(self.username)
 
+
 class AnonymousUser(AnonymousUserMixin):
+
     def can(self, permissions):
         return False
 
     def is_administrator(self):
         return False
 
+
 login_manager.anonymous_user = AnonymousUser
+
 
 @login_manager.user_loader
 def load_user(user_id):
