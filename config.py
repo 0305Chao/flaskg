@@ -2,6 +2,10 @@
 import os
 
 basedir = os.path.abspath(os.path.dirname(__file__))
+USERNAME = 'flaskg'
+PASSWORD = 'plus'
+HOSTNAME = 'localhost'
+DATABASE = 'flaskg'
 
 
 class Config:
@@ -23,20 +27,27 @@ class DevelopmentConfig(Config):
     MAIL_PORT = 25
     MAIL_USE_TLS = True
     MAIL_USERNAME = 'lambdaplus@163.com'
-    MAIL_PASSWORD = 'B13010418' # os.environ.get('MAIL_PASSWORD')
+    MAIL_PASSWORD = 'B13010418'  # os.environ.get('MAIL_PASSWORD')
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
+        'mysql://{}:{}@{}/{}'.format(
+            USERNAME, PASSWORD, HOSTNAME, DATABASE)
+# 'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
 
 
 class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'data-test.sqlite')
+        'mysql://{}:{}@{}/{}'.format(
+            USERNAME, PASSWORD, HOSTNAME, DATABASE)
+    #    'sqlite:///' + os.path.join(basedir, 'data-test.sqlite')
 
 
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'data.sqlite')
+        'mysql://{}:{}@{}/{}'.format(
+            USERNAME, PASSWORD, HOSTNAME, DATABASE)
+    #    'sqlite:///' + os.path.join(basedir, 'data.sqlite')
+
 
 config = {
     'development': DevelopmentConfig,
