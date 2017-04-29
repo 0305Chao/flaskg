@@ -8,6 +8,7 @@ from . import auth
 from ..email import send_email
 from .. import db
 
+
 @auth.before_app_request
 def before_request():
     if current_user.is_authenticated:
@@ -24,6 +25,7 @@ def unconfirmed():
     if current_user.is_anonymous or current_user.confirmed:
         return redirect(url_for('main.index'))
     return render_template('auth/unconfirmed.html')
+
 
 @auth.route('/login', methods=['GET', "POST"])
 def login():
@@ -56,7 +58,7 @@ def register():
         db.session.commit()
         token = user.generate_confirmation_token()
         send_email(user.email, 'Confirm your acount',
-                  'auth/email/confirm', user=user, token=token)
+                    'auth/email/confirm', user=user, token=token)
         flash('一封确认邮件发送到了你的邮箱')
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', form=form)
@@ -83,6 +85,7 @@ def resend_confirmation():
     flash('新的邮件已经发送')
     return redirect(url_for('main.index'))
 
+
 @auth.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
@@ -96,6 +99,7 @@ def change_password():
         else:
             flash('密码无效')
     return render_template('auth/change_password.html', form=form)
+
 
 @auth.route('/reset', methods=['GET', 'POST'])
 def password_reset_request():
@@ -112,6 +116,7 @@ def password_reset_request():
         flash('重置密码的邮件已经发送到你的邮箱')
         return redirect(url_for('auth.login'))
     return render_template('auth/reset_password.html', form=form)
+
 
 @auth.route('/reset/<token>', methods=['GET', 'POST'])
 def password_reset(token):
@@ -130,6 +135,7 @@ def password_reset(token):
             return redirect(url_for('main.index'))
     return render_template('auth/reset_password.html', form=form)
 
+
 @auth.route('/change-email', methods=['GET', 'POST'])
 @login_required
 def change_email_request():
@@ -145,6 +151,7 @@ def change_email_request():
         else:
             flash('密码错误')
     return render_template('auth/change_email.html', form=form)
+
 
 @auth.route('/change-email/<token>', methods=['GET', "POST"])
 @login_required
