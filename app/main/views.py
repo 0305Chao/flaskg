@@ -5,7 +5,7 @@ from . import main
 from .forms import EditProfileFrom, EditProfileAdminFrom, PostForm
 from .. import db
 from ..models import User, Role, Permissions, Post
-from ..decorators import admin_required
+from ..decorators import admin_required, permission_required
 
 
 @main.route('/post/<int:id>')
@@ -103,3 +103,71 @@ def edit(id):
         return render_template(url_for('post', id=post.id))
     form.body.data = post.body
     return render_template('edit_post.html', form=form)
+
+
+@main.route('/follow/<username>')
+@login_required
+@permission_required(Permissions.FOLLOW)
+def follow(username):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        flash('Invalid user')
+        return redirect(url_for('.index'))
+    if current_user.is_following(user):
+        flash('已经关注过了哈！')
+        return redirect(url_for('.user', username=username))
+    current_user.follow(user)
+    flash('你关注了{}'.format(username))
+    return redirect(url_for('.user', username=username))
+
+
+@main.route('/unfollow/<username>')
+@login_required
+@permission_required(Permissions.FOLLOW)
+def unfollow(username):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        flash('Invalid user')
+        return redirect(url_for('.index'))
+    if not current_user.is_following(user):
+        flash('你还没有关注Ta哦！')
+        return redirect(url_for('.user', username=username))
+    current_user.unfollow(user)
+    flash('你已经不在关注{}'.format(username))
+    return redirect(url_for('.user', username=username))
+
+
+@main.route('/followers/<username>')
+def followers(username):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        flash('Invalid user')
+        return redirect(url_for('.index'))
+    page = request.args.get('page', 1, type=int)
+    pagination = user.followers.paginate(
+        page, per_page=10,
+        error_out=False
+    )
+    follows = [{'user': item.follower, 'timestamp': item.timestamp}
+               for item in pagination.items]
+    return render_template('followers.html', user=user, title="Followers of",
+                           endpoint='.followers', pagination=pagination,
+                           follows=follows)
+
+
+@main.route('/followed-by/<username>')
+def followed_by(username):
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        flash('Invalid user')
+        return redirect(url_for('.index'))
+    page = request.args.get('page', 1, type=int)
+    pagination = user.followed.paginate(
+        page, per_page=10,
+        error_out=False
+    )
+    follows = [{'user': item.follower, 'timestamp': item.timestamp}
+               for item in pagination.items]
+    return render_template('followers.html', user=user, title="Followed by",
+                           endpoint='.follwed_by', pagination=pagination,
+                           follows=follows)
